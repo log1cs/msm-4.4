@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2018, 2020 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -150,7 +150,7 @@ static int32_t msm_vfe40_init_qos_parms(struct vfe_device *vfe_dev,
 	void __iomem *vfebase = vfe_dev->vfe_base;
 	struct device_node *of_node;
 	uint32_t *ds_settings = NULL, *ds_regs = NULL, ds_entries = 0;
-	int32_t i = 0, rc = 0;
+	int32_t i = 0 , rc = 0;
 	uint32_t *qos_settings = NULL, *qos_regs = NULL, qos_entries = 0;
 	of_node = vfe_dev->pdev->dev.of_node;
 
@@ -256,7 +256,7 @@ static int32_t msm_vfe40_init_vbif_parms(struct vfe_device *vfe_dev,
 {
 	void __iomem *vfe_vbif_base = vfe_dev->vfe_vbif_base;
 	struct device_node *of_node;
-	int32_t i = 0, rc = 0;
+	int32_t i = 0 , rc = 0;
 	uint32_t *vbif_settings = NULL, *vbif_regs = NULL, vbif_entries = 0;
 	of_node = vfe_dev->pdev->dev.of_node;
 
@@ -830,6 +830,12 @@ static void msm_vfe40_axi_enable_wm(void __iomem *vfe_base,
 		val |= 0x1;
 	else
 		val &= ~0x1;
+
+	trace_printk("%s:%d  wm_idx %d enable %d\n",
+		__func__, __LINE__,
+		wm_idx,
+		enable);
+
 	msm_camera_io_w_mb(val,
 		vfe_base + VFE40_WM_BASE(wm_idx));
 }
@@ -1244,10 +1250,6 @@ static void msm_vfe40_cfg_fetch_engine(struct vfe_device *vfe_dev,
 	case V4L2_PIX_FMT_P16GBRG10:
 	case V4L2_PIX_FMT_P16GRBG10:
 	case V4L2_PIX_FMT_P16RGGB10:
-	case V4L2_PIX_FMT_P16BGGR12:
-	case V4L2_PIX_FMT_P16GBRG12:
-	case V4L2_PIX_FMT_P16GRBG12:
-	case V4L2_PIX_FMT_P16RGGB12:
 		main_unpack_pattern = 0xB210;
 		break;
 	default:
@@ -1627,6 +1629,14 @@ static void msm_vfe40_axi_cfg_wm_reg(
 	} else {
 		burst_len = VFE40_BURST_LEN;
 	}
+
+	trace_printk("%s:%d state %d src %d stream id %d session_id %x frame_base %d\n",
+	__func__, __LINE__,
+	stream_info->state,
+	stream_info->stream_src,
+	stream_info->stream_id,
+	stream_info->session_id,
+	stream_info->frame_based);
 
 	if (!stream_info->frame_based) {
 		msm_camera_io_w(0x0, vfe_dev->vfe_base + wm_base);

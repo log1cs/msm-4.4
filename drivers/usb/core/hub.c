@@ -107,8 +107,6 @@ EXPORT_SYMBOL_GPL(ehci_cf_port_reset_rwsem);
 static void hub_release(struct kref *kref);
 static int usb_reset_and_verify_device(struct usb_device *udev);
 static int hub_port_disable(struct usb_hub *hub, int port1, int set_state);
-static bool hub_port_warm_reset_required(struct usb_hub *hub, int port1,
-		u16 portstatus);
 
 static inline char *portspeed(struct usb_hub *hub, int portstatus)
 {
@@ -297,7 +295,8 @@ static void usb_set_lpm_sel(struct usb_device *udev,
 	udev_lpm_params->sel = total_sel;
 }
 
-static void usb_set_lpm_parameters(struct usb_device *udev)
+//20171108@Bobihlee from QC can't support 0201 LPM. 
+static void __maybe_unused usb_set_lpm_parameters(struct usb_device *udev)
 {
 	struct usb_hub *hub;
 	unsigned int port_to_port_delay;
@@ -1104,11 +1103,6 @@ static void hub_activate(struct usb_hub *hub, enum hub_activation_type type)
 				usb_clear_port_feature(hdev, port1,
 						   USB_PORT_FEAT_ENABLE);
 		}
-
-		/* Make sure a warm-reset request is handled by port_event */
-		if (type == HUB_RESUME &&
-		    hub_port_warm_reset_required(hub, port1, portstatus))
-			set_bit(port1, hub->event_bits);
 
 		/*
 		 * Add debounce if USB3 link is in polling/link training state.
@@ -4625,11 +4619,14 @@ hub_port_init(struct usb_hub *hub, struct usb_device *udev, int port1,
 	usb_detect_quirks(udev);
 
 	if (udev->wusb == 0 && le16_to_cpu(udev->descriptor.bcdUSB) >= 0x0201) {
-		retval = usb_get_bos_descriptor(udev);
+		//20171108@Bobihlee from QC can't support 0201 LPM. ,Begin 
+		dev_dbg(&udev->dev, "from QC can't support 0201 LPM \n");
+/*		retval = usb_get_bos_descriptor(udev);
 		if (!retval) {
 			udev->lpm_capable = usb_device_supports_lpm(udev);
 			usb_set_lpm_parameters(udev);
-		}
+		} */
+		//20171108@Bobihlee from QC can't support 0201 LPM. ,End 
 	}
 
 	retval = 0;
