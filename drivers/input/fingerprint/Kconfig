@@ -38,4 +38,10 @@ config ELAN_FP
         help
                   Say Y here if you want to use ELAN 614R fingerprint soc drivers.
 
+config FOCALTECH_FP
+        bool "FocalTech FT9362 Fingerprint"
+        default n
+        help
+                  Say Y here if you want to use FocalTech FT9362 fingerprint soc drivers.
+
 endmenu
