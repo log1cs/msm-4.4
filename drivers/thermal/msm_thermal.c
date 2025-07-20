@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2020, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -50,12 +50,17 @@
 #include <linux/uaccess.h>
 #include <linux/uio_driver.h>
 #include <linux/io.h>
+#ifdef CONFIG_FIH_APR
+#include <linux/input/qpnp-power-on.h>
+#endif
 
 #include <asm/cacheflush.h>
 
 #define CREATE_TRACE_POINTS
 #define TRACE_MSM_THERMAL
 #include <trace/trace_thermal.h>
+
+#include "../../drivers/fih/fih_rere.h" 
 
 #define MSM_LIMITS_DCVSH		0x10
 #define MSM_LIMITS_NODE_DCVS		0x44435653
@@ -2803,7 +2808,7 @@ static int do_vdd_mx(void)
 		}
 	}
 
-	if (dis_cnt == thresh[MSM_VDD_MX_RESTRICTION].thresh_ct) {
+	if ((dis_cnt == thresh[MSM_VDD_MX_RESTRICTION].thresh_ct)) {
 		ret = remove_vdd_mx_restriction();
 		if (ret)
 			pr_err("Failed to remove vdd mx restriction\n");
@@ -2865,6 +2870,11 @@ static void msm_thermal_bite(int zone_id, int temp)
 	int tsens_id = 0;
 	int ret = 0;
 
+	#ifdef CONFIG_FIH_APR
+	pr_err("FIH_APR: OVER_TAMPERATURE\n");
+	qpnp_pon_set_restart_reason(FIH_RERE_OVER_TAMPERATURE);
+	#endif
+
 	ret = zone_id_to_tsen_id(zone_id, &tsens_id);
 	if (ret < 0) {
 		pr_err("Zone:%d reached temperature:%d. Err = %d System reset\n",
@@ -2906,9 +2916,12 @@ static int do_therm_reset(void)
 			continue;
 		}
 
-		if (temp >= msm_thermal_info.therm_reset_temp_degC)
+		if (temp >= msm_thermal_info.therm_reset_temp_degC) {
+			printk("BBox;%s:(%d:%d)\n", __func__, i, temp);
+			printk("BBox::UEC;22::11\n");
 			msm_thermal_bite(
 			thresh[MSM_THERM_RESET].thresh_list[i].sensor_id, temp);
+		}
 	}
 
 	return ret;
@@ -6293,7 +6306,7 @@ static int fetch_cpu_mitigaiton_info(struct msm_thermal_data *data,
 		struct platform_device *pdev)
 {
 
-	int _cpu = 0, err = 0, sensor_name_len = 0;
+	int _cpu = 0, err = 0;
 	struct device_node *cpu_node = NULL, *limits = NULL, *tsens = NULL;
 	char *key = NULL;
 	struct device_node *node = pdev->dev.of_node;
@@ -6351,9 +6364,8 @@ static int fetch_cpu_mitigaiton_info(struct msm_thermal_data *data,
 			err = -ENOMEM;
 			goto fetch_mitig_exit;
 		}
-		sensor_name_len = strlen(sensor_name);
 		strlcpy((char *) cpus[_cpu].sensor_type, sensor_name,
-			sensor_name_len + 1);
+			strlen(sensor_name) + 1);
 		create_alias_name(_cpu, limits, pdev);
 	}
 
