@@ -52,7 +52,6 @@
 #include <linux/circ_buf.h>
 #include <linux/proc_fs.h>
 #include <linux/slab.h>
-#include <linux/poll.h>
 
 #define CREATE_TRACE_POINTS
 #include <trace/events/almk.h>
@@ -119,6 +118,19 @@ void handle_lmk_event(struct task_struct *selected, int selected_tasksize,
 	int tail;
 	struct lmk_event *events;
 	struct lmk_event *event;
+	int res;
+	char taskname[MAX_TASKNAME];
+
+	res = get_cmdline(selected, taskname, MAX_TASKNAME - 1);
+
+	/* No valid process name means this is definitely not associated with a
+	 * userspace activity.
+	 */
+
+	if (res <= 0 || res >= MAX_TASKNAME)
+		return;
+
+	taskname[res] = '\0';
 
 	spin_lock(&lmk_event_lock);
 
@@ -134,7 +146,7 @@ void handle_lmk_event(struct task_struct *selected, int selected_tasksize,
 	events = (struct lmk_event *) event_buffer.buf;
 	event = &events[head];
 
-	strncpy(event->taskname, selected->comm, MAX_TASKNAME);
+	memcpy(event->taskname, taskname, res + 1);
 
 	event->pid = selected->pid;
 	event->uid = from_kuid_munged(current_user_ns(), task_uid(selected));
@@ -244,6 +256,8 @@ static int enable_adaptive_lmk;
 module_param_named(enable_adaptive_lmk, enable_adaptive_lmk, int,
 		   S_IRUGO | S_IWUSR);
 
+static uint64_t sigkills = 0; //record LMK kill times and system uptime to BBS
+
 /*
  * This parameter controls the behaviour of LMK when vmpressure is in
  * the range of 90-94. Adaptive lmk triggers based on number of file
@@ -294,7 +308,6 @@ static int lmk_vmpressure_notifier(struct notifier_block *nb,
 	if (pressure >= 95) {
 		other_file = global_page_state(NR_FILE_PAGES) + zcache_pages() -
 			global_page_state(NR_SHMEM) -
-			global_page_state(NR_UNEVICTABLE) -
 			total_swapcache_pages();
 		other_free = global_page_state(NR_FREE_PAGES);
 
@@ -308,7 +321,6 @@ static int lmk_vmpressure_notifier(struct notifier_block *nb,
 
 		other_file = global_page_state(NR_FILE_PAGES) + zcache_pages() -
 			global_page_state(NR_SHMEM) -
-			global_page_state(NR_UNEVICTABLE) -
 			total_swapcache_pages();
 
 		other_free = global_page_state(NR_FREE_PAGES);
@@ -321,7 +333,6 @@ static int lmk_vmpressure_notifier(struct notifier_block *nb,
 	} else if (atomic_read(&shift_adj)) {
 		other_file = global_page_state(NR_FILE_PAGES) + zcache_pages() -
 			global_page_state(NR_SHMEM) -
-			global_page_state(NR_UNEVICTABLE) -
 			total_swapcache_pages();
 		other_free = global_page_state(NR_FREE_PAGES);
 
@@ -545,6 +556,24 @@ void tune_lmk_param(int *other_free, int *other_file, struct shrink_control *sc)
 	}
 }
 
+//record LMK kill times and system uptime to BBS +++
+static void optlmk_sysinfo(struct sysinfo *val)
+{
+	struct timespec uptime;
+	ktime_get_ts(&uptime);
+	memset(val, 0, sizeof(*val));
+	val->uptime = uptime.tv_sec;
+}
+
+static uint64_t get_uptime(void)
+{
+	struct sysinfo sys_info;
+	optlmk_sysinfo(&sys_info);
+
+	return sys_info.uptime;
+}
+//record LMK kill times and system uptime to BBS ---
+
 static unsigned long lowmem_scan(struct shrinker *s, struct shrink_control *sc)
 {
 	struct task_struct *tsk;
@@ -665,7 +694,6 @@ static unsigned long lowmem_scan(struct shrinker *s, struct shrink_control *sc)
 		}
 
 		task_lock(selected);
-		get_task_struct(selected);
 		send_sig(SIGKILL, selected, 0);
 		/*
 		 * FIXME: lowmemorykiller shouldn't abuse global OOM killer
@@ -679,6 +707,9 @@ static unsigned long lowmem_scan(struct shrinker *s, struct shrink_control *sc)
 		cache_limit = minfree * (long)(PAGE_SIZE / 1024);
 		free = other_free * (long)(PAGE_SIZE / 1024);
 		trace_lowmemory_kill(selected, cache_size, cache_limit, free);
+		//trim lowmemorykiller logs +++
+		//mark original lowmemorykiller print function
+		/*
 		lowmem_print(1, "Killing '%s' (%d) (tgid %d), adj %hd,\n" \
 			        "   to free %ldkB on behalf of '%s' (%d) because\n" \
 			        "   cache %ldkB is below limit %ldkB for oom_score_adj %hd\n" \
@@ -705,6 +736,28 @@ static unsigned long lowmem_scan(struct shrinker *s, struct shrink_control *sc)
 				(long)(PAGE_SIZE / 1024),
 			     (long)zcache_pages() * (long)(PAGE_SIZE / 1024),
 			     sc->gfp_mask);
+		*/
+
+		sigkills += 1; //record LMK kill times and system uptime to BBS
+
+		lowmem_print(1, "Killing '%s' (%d), adj %hd, to free %ldkB, sigkill: %llu\n" \
+				"   cache: %ldkB, limit %ldkB, ofree: %ldkB, free pages: %ldkB, file cache: %ldkB, zcache: %ldkB\n",
+			     selected->comm, selected->pid,
+			     selected_oom_score_adj,
+			     selected_tasksize * (long)(PAGE_SIZE / 1024),
+				(unsigned long long)sigkills,
+			     cache_size, cache_limit, free,
+			     global_page_state(NR_FREE_PAGES) *
+				(long)(PAGE_SIZE / 1024),
+			     global_page_state(NR_FILE_PAGES) *
+				(long)(PAGE_SIZE / 1024),
+			     (long)zcache_pages() * (long)(PAGE_SIZE / 1024));
+		//trim lowmemorykiller logs ---
+
+		//record LMK kill times and system uptime to BBS +++
+		if (sigkills %10 == 0)
+			printk("BBox::UPD;87::%llu::%llu\n", (unsigned long long)sigkills, (unsigned long long)get_uptime());
+		//record LMK kill times and system uptime to BBS ---
 
 		if (lowmem_debug_level >= 2 && selected_oom_score_adj == 0) {
 			show_mem(SHOW_MEM_FILTER_NODES);
@@ -714,6 +767,7 @@ static unsigned long lowmem_scan(struct shrinker *s, struct shrink_control *sc)
 		lowmem_deathpending_timeout = jiffies + HZ;
 		rem += selected_tasksize;
 		rcu_read_unlock();
+		get_task_struct(selected);
 		/* give the system time to free up the memory */
 		msleep_interruptible(20);
 		trace_almk_shrink(selected_tasksize, ret,
