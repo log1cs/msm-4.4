@@ -1,0 +1,40 @@
+// Memory mappings
+#include "../memmap-evb.dtsi"
+
+// Platform
+#include "../platforminfo/common_info_sdm_v5.dtsi"
+#include "../platforminfo/system-preEVT-660.dtsi"
+
+// Misc
+#include "../../misc/keypad.dtsi"
+
+// Charger
+#include "../../charger/b2n-charger-evt1.dtsi"
+
+// Audio
+#include "../../audio/audio-DVT.dtsi"
+
+// Camera
+#include "../../camera/camera-b2n-evt.dtsi"
+
+// Haptic
+#include "../../misc/haptics/haptic_drv2605l.dtsi"
+
+// SD
+#include "../../misc/sd-evb.dtsi"
+
+/* Fingerprint */
+#include "../../fingerprint/fingerprint-gf3208-evt-b2n.dtsi"
+
+/* Sensor */
+#include "../../misc/hallsensor/hallsensor-fih.dtsi"
+
+/* Touch */
+#include "../../display/touch/touch-focaltech8716-b2n.dtsi"
+#include "../../display/touch/touch-novatek-nt36xxx-b2n.dtsi"
+
+/* LCM */
+#include "../../display/dsi-panel-fih-ft8716u-fhd-video.dtsi"
+#include "../../display/dsi-panel-fih-nt36672-fhd-video.dtsi"
+#include "../../display/dsi-panel-fih-nt36672-h-glass-fhd-video.dtsi"
+#include "../../display/boost_converter_nt50356_i2c_0x11.dtsi"
