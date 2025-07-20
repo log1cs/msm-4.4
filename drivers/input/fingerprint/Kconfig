@@ -20,4 +20,10 @@ config CDFINGER_FP
        help
 		  Say Y here if you want to use Cdfinger fingerprint soc drivers.
 
+config FPC1020_FP
+	bool "FPC1020 Fingerprint"
+	default n
+	help
+                  Say Y here if you want to use FPC1020 fingerprint soc drivers.
+
 endmenu
