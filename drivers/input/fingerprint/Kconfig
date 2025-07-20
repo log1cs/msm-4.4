@@ -14,4 +14,10 @@ config SUNWAVE_FP
        help
 		  Say Y here if you want to use Sunwave fingerprint soc drivers.
 
+config CDFINGER_FP
+       tristate "Cdfinger Fingerprint"
+       default n
+       help
+		  Say Y here if you want to use Cdfinger fingerprint soc drivers.
+
 endmenu
