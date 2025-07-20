@@ -1228,5 +1228,6 @@ source "drivers/input/touchscreen/focaltech_touch/Kconfig"
 source "drivers/input/touchscreen/focaltech_touch_8716/Kconfig"
 source "drivers/input/touchscreen/focaltech_touch_8719/Kconfig"
 source "drivers/input/touchscreen/hxchipset/Kconfig"
+source "drivers/input/touchscreen/nt36xxx/Kconfig"
 
 endif
