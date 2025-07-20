@@ -8,4 +8,10 @@ config SILEAD_FP
 
 	  If unsure, say N.
 
+config SUNWAVE_FP
+       tristate "Sunwave Fingerprint"
+       default n
+       help
+		  Say Y here if you want to use Sunwave fingerprint soc drivers.
+
 endmenu
