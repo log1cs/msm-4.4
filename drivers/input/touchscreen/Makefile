@@ -101,3 +101,4 @@ obj-$(CONFIG_MACH_LONGCHEER)		+= lct_tp_fm_info.o
 obj-$(CONFIG_TOUCHSCREEN_ST)		+= st/
 obj-$(CONFIG_TOUCHSCREEN_FTS)	+= focaltech_touch/
 obj-$(CONFIG_TOUCHSCREEN_HIMAX)	+= hxchipset/
+obj-$(CONFIG_TOUCHSCREEN_FT8719) 	+= focaltech_touch_8719/
