@@ -32,4 +32,10 @@ config GF5288_FP
 	help
                   Say Y here if you want to use Goodix GF5288 fingerprint soc drivers.
 
+config ELAN_FP
+        bool "ELAN 614R Fingerprint"
+        default n
+        help
+                  Say Y here if you want to use ELAN 614R fingerprint soc drivers.
+
 endmenu
