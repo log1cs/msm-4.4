@@ -133,6 +133,19 @@ static int __down_trylock_console_sem(unsigned long ip)
  */
 static int console_locked, console_suspended;
 
+/* for BBS start */
+#define __LOG_BBS_BUF_LEN 1024
+DECLARE_WAIT_QUEUE_HEAD(bbs_log_wait);
+static DEFINE_RAW_SPINLOCK(bbs_logbuf_lock);
+static unsigned log_bbs_start = 0;	/* Index into log_bbs_start: next char to be read by syslog() */
+static unsigned log_bbs_end=0;	/* Index into log_bbs_end: most-recently-written-char + 1 */
+static char __log_bbs_buf[__LOG_BBS_BUF_LEN];
+static char *log_bbs_buf = __log_bbs_buf;
+static int log_bbs_buf_len = __LOG_BBS_BUF_LEN;
+#define LOG_BBS_BUF_MASK (log_bbs_buf_len-1)
+#define LOG_BBS_BUF(idx) (log_bbs_buf[(idx) & LOG_BBS_BUF_MASK])
+/* for BBS end */
+
 /*
  * If exclusive_console is non-NULL then only this console is to be printed to.
  */
@@ -283,7 +296,6 @@ static u32 clear_idx;
 /* record buffer */
 #define LOG_ALIGN __alignof__(struct printk_log)
 #define __LOG_BUF_LEN (1 << CONFIG_LOG_BUF_SHIFT)
-#define LOG_BUF_LEN_MAX (u32)(1 << 31)
 static char __log_buf[__LOG_BUF_LEN] __aligned(LOG_ALIGN);
 static char *log_buf = __log_buf;
 static u32 log_buf_len = __LOG_BUF_LEN;
@@ -487,6 +499,10 @@ int dmesg_restrict = IS_ENABLED(CONFIG_SECURITY_DMESG_RESTRICT);
 
 static int syslog_action_restricted(int type)
 {
+    /* for BBS start */
+    if (type == SYSLOG_ACTION_GET_KERNEL_BUFFER)
+        return 0;
+    /* for BBS end */
 	if (dmesg_restrict)
 		return 1;
 	/*
@@ -875,23 +891,18 @@ void log_buf_kexec_setup(void)
 static unsigned long __initdata new_log_buf_len;
 
 /* we practice scaling the ring buffer by powers of 2 */
-static void __init log_buf_len_update(u64 size)
+static void __init log_buf_len_update(unsigned size)
 {
-	if (size > (u64)LOG_BUF_LEN_MAX) {
-		size = (u64)LOG_BUF_LEN_MAX;
-		pr_err("log_buf over 2G is not supported.\n");
-	}
-
 	if (size)
 		size = roundup_pow_of_two(size);
 	if (size > log_buf_len)
-		new_log_buf_len = (unsigned long)size;
+		new_log_buf_len = size;
 }
 
 /* save requested log_buf_len since it's too early to process it */
 static int __init log_buf_len_setup(char *str)
 {
-	u64 size;
+	unsigned int size;
 
 	if (!str)
 		return -EINVAL;
@@ -941,7 +952,7 @@ void __init setup_log_buf(int early)
 {
 	unsigned long flags;
 	char *new_log_buf;
-	unsigned int free;
+	int free;
 
 	if (log_buf != __log_buf)
 		return;
@@ -961,7 +972,7 @@ void __init setup_log_buf(int early)
 	}
 
 	if (unlikely(!new_log_buf)) {
-		pr_err("log_buf_len: %lu bytes not available\n",
+		pr_err("log_buf_len: %ld bytes not available\n",
 			new_log_buf_len);
 		return;
 	}
@@ -974,8 +985,8 @@ void __init setup_log_buf(int early)
 	memcpy(log_buf, __log_buf, __LOG_BUF_LEN);
 	raw_spin_unlock_irqrestore(&logbuf_lock, flags);
 
-	pr_info("log_buf_len: %u bytes\n", log_buf_len);
-	pr_info("early log buf free: %u(%u%%)\n",
+	pr_info("log_buf_len: %d bytes\n", log_buf_len);
+	pr_info("early log buf free: %d(%d%%)\n",
 		free, (free * 100) / __LOG_BUF_LEN);
 }
 
@@ -1314,6 +1325,10 @@ int do_syslog(int type, char __user *buf, int len, int source)
 	bool clear = false;
 	static int saved_console_loglevel = LOGLEVEL_DEFAULT;
 	int error;
+    /* for BBS start */
+	unsigned i;
+	char c;
+    /* for BBS end */
 
 	error = check_syslog_permissions(type, source);
 	if (error)
@@ -1427,6 +1442,43 @@ int do_syslog(int type, char __user *buf, int len, int source)
 	case SYSLOG_ACTION_SIZE_BUFFER:
 		error = log_buf_len;
 		break;
+    /* for BBS start */
+	case SYSLOG_ACTION_GET_KERNEL_BUFFER:
+        error = -EINVAL;
+		if (!buf || len < 0)
+			goto out;
+		error = 0;
+		if (!len)
+			goto out;
+		if (!access_ok(VERIFY_WRITE, buf, len)) {
+			error = -EFAULT;
+			goto out;
+		}
+
+		error = wait_event_interruptible(bbs_log_wait,
+							(log_bbs_start - log_bbs_end));
+		if (error)
+			goto out;
+		i = 0;
+
+		raw_spin_lock_irq(&bbs_logbuf_lock);
+
+		while (!error&&(log_bbs_start != log_bbs_end)&&i < len) {
+			c = LOG_BBS_BUF(log_bbs_start);
+			log_bbs_start++;
+			raw_spin_unlock_irq(&bbs_logbuf_lock);
+			error = __put_user(c,buf);
+			buf++;
+			i++;
+			cond_resched();
+			raw_spin_lock_irq(&bbs_logbuf_lock);
+		}
+		raw_spin_unlock_irq(&bbs_logbuf_lock);
+
+		if (!error)
+			error = i;
+		break;
+    /* for BBS end */
 	default:
 		error = -EINVAL;
 		break;
@@ -1931,6 +1983,27 @@ asmlinkage __visible int printk(const char *fmt, ...)
 	 */
 	vprintk_func = this_cpu_read(printk_func);
 	r = vprintk_func(fmt, args);
+    /* for BBS start */
+	if(strstr(fmt,"BBox") != NULL) {
+		int i;
+		char printk_bbsbuf[512];
+
+		raw_spin_lock_irq(&bbs_logbuf_lock);
+		r=vscnprintf(printk_bbsbuf, sizeof(printk_bbsbuf), fmt, args);
+
+		for (i = 0; i < r; i++)
+		{
+			LOG_BBS_BUF(log_bbs_end) = printk_bbsbuf[i];
+			log_bbs_end++;
+			if (log_bbs_end - log_bbs_start > log_bbs_buf_len)
+				log_bbs_start = log_bbs_end - log_bbs_buf_len;
+		}
+		raw_spin_unlock_irq(&bbs_logbuf_lock);
+
+		if(waitqueue_active(&bbs_log_wait))
+			wake_up_interruptible(&bbs_log_wait);
+	}
+    /* for BBS end */
 
 	va_end(args);
 
@@ -3072,7 +3145,7 @@ bool kmsg_dump_get_buffer(struct kmsg_dumper *dumper, bool syslog,
 	seq = dumper->cur_seq;
 	idx = dumper->cur_idx;
 	prev = 0;
-	while (l >= size && seq < dumper->next_seq) {
+	while (l > size && seq < dumper->next_seq) {
 		struct printk_log *msg = log_from_idx(idx);
 
 		l -= msg_print_text(msg, prev, true, NULL, 0);
