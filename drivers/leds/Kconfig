@@ -214,6 +214,13 @@ config LEDS_GPIO
 	  defined as platform devices and/or OpenFirmware platform devices.
 	  The code to use these bindings can be selected below.
 
+config LEDS_AW2015
+	tristate "LED Support for AW2015"
+	depends on LEDS_CLASS && I2C
+	help
+	   This option enables support for the AW2015 RGB LED connected
+	   through I2C. Say Y to enable support for the AW2015 LED
+
 config LEDS_LP3944
 	tristate "LED Support for N.S. LP3944 (Fun Light) I2C chip"
 	depends on LEDS_CLASS
