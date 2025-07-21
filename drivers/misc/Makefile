@@ -69,3 +69,6 @@ obj-$(CONFIG_MEMORY_STATE_TIME) += memory_state_time.o
 
 # ant_check
 obj-$(CONFIG_ANT_CHECK)			+= ant_check/
+
+# abov_sar
+obj-$(CONFIG_ABOV_SAR)           	+= ant_check/

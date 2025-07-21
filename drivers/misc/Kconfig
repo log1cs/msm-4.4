@@ -585,6 +585,12 @@ config ANT_CHECK
         help
           Say Y here if you want to use ant_check drivers.
 
+config ABOV_SAR
+        bool "abov_sar driver"
+        default n
+        help
+          Say Y here if you want to use abov_sar drivers.
+
 source "drivers/misc/c2port/Kconfig"
 source "drivers/misc/eeprom/Kconfig"
 source "drivers/misc/cb710/Kconfig"
