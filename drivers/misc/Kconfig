@@ -579,6 +579,12 @@ config MEMORY_STATE_TIME
 	help
 	  Memory time statistics exported to /sys/kernel/memory_state_time
 
+config ANT_CHECK
+        bool "ant_check driver"
+        default n
+        help
+          Say Y here if you want to use ant_check drivers.
+
 source "drivers/misc/c2port/Kconfig"
 source "drivers/misc/eeprom/Kconfig"
 source "drivers/misc/cb710/Kconfig"
