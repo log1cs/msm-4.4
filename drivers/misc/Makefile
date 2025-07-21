@@ -72,3 +72,6 @@ obj-$(CONFIG_ANT_CHECK)			+= ant_check/
 
 # abov_sar
 obj-$(CONFIG_ABOV_SAR)           	+= ant_check/
+
+# Haptics (drv2605)
+obj-$(CONFIG_HAPTICS_DRV2605)         	+= drv2605/
