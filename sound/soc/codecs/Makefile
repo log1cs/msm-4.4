@@ -426,5 +426,6 @@ obj-$(CONFIG_SND_SOC_MSM_STUB)  += snd-soc-msm-stub.o
 obj-$(CONFIG_SND_SOC_MAX9877)	+= snd-soc-max9877.o
 obj-$(CONFIG_SND_SOC_TPA6130A2)	+= snd-soc-tpa6130a2.o
 obj-$(CONFIG_SND_SOC_TAS2557)	+= tas2557/
+obj-$(CONFIG_SND_SOC_TAS2560)	+= tas2560/
 obj-y += sdm660_cdc/
 obj-y += msm_sdw/
