@@ -533,6 +533,12 @@ config WIRELESS_CHARGER_P9221
 	help
 	  IDT P9221 wireless charging control driver
 
+config WIRELESS_CHARGER_STWLC33
+	bool "ST STWLC33 Wireless Charging control Driver"
+	depends on I2C
+	help
+	  ST STWLC33 wireless charging control driver
+
 source "drivers/power/reset/Kconfig"
 source "drivers/power/supply/Kconfig"
 
