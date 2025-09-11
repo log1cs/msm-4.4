@@ -998,5 +998,6 @@ source "sound/soc/codecs/sdm660_cdc/Kconfig"
 source "sound/soc/codecs/msm_sdw/Kconfig"
 source "sound/soc/codecs/tas2557/Kconfig"
 source "sound/soc/codecs/tas2560/Kconfig"
+source "sound/soc/codecs/tfa9891/Kconfig"
 
 endmenu
