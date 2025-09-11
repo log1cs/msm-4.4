@@ -19,6 +19,9 @@
 #include <linux/regulator/consumer.h>
 #include <linux/extcon.h>
 #include "storm-watch.h"
+#ifdef CONFIG_MACH_FIH
+#include <linux/wakelock.h>
+#endif
 
 enum print_reason {
 	PR_INTERRUPT	= BIT(0),
@@ -69,10 +72,22 @@ enum print_reason {
 #define OV_VOTER			"OV_VOTER"
 #define FCC_STEPPER_VOTER		"FCC_STEPPER_VOTER"
 
+#ifdef CONFIG_MACH_FIH
+#define LIMIT_ICL_VOTER "LIMIT_ICL_VOTER"
+#define LCM_LIMIT_ICL_VOTER "LCM_LIMIT_ICL_VOTER"
+#endif
+
 #define VCONN_MAX_ATTEMPTS	3
 #define OTG_MAX_ATTEMPTS	3
 #define BOOST_BACK_STORM_COUNT	3
 #define WEAK_CHG_STORM_COUNT	8
+
+#ifdef CONFIG_MACH_FIH
+#define FIH_LCM_DELAY_TIME 	10000
+#define FIH_LCM_VBUS_THRESHOLD 	5300000
+#define FIH_LCM_ICL_MAX 	3000000
+#define FIH_LCM_ICL_MIN 	1000000
+#endif
 
 enum smb_mode {
 	PARALLEL_MASTER = 0,
@@ -205,6 +220,9 @@ struct smb_params {
 	struct smb_chg_param	dc_icl_div2_mid_lv;
 	struct smb_chg_param	dc_icl_div2_mid_hv;
 	struct smb_chg_param	dc_icl_div2_hv;
+#ifdef CONFIG_MACH_FIH
+	struct smb_chg_param	jeita_fv_comp;
+#endif
 	struct smb_chg_param	jeita_cc_comp;
 	struct smb_chg_param	freq_buck;
 	struct smb_chg_param	freq_boost;
@@ -264,6 +282,9 @@ struct smb_charger {
 	struct power_supply_desc	usb_psy_desc;
 	struct power_supply		*usb_main_psy;
 	struct power_supply		*usb_port_psy;
+#ifdef CONFIG_MACH_LONGCHEER
+	struct power_supply             *pl_psy;
+#endif
 	enum power_supply_type		real_charger_type;
 
 	/* notifiers */
@@ -307,9 +328,15 @@ struct smb_charger {
 	struct delayed_work	otg_ss_done_work;
 	struct delayed_work	icl_change_work;
 	struct delayed_work	pl_enable_work;
+#ifdef CONFIG_MACH_FIH
+	struct delayed_work update_batt_info_work;
+#endif
 	struct work_struct	legacy_detection_work;
 	struct delayed_work	uusb_otg_work;
 	struct delayed_work	bb_removal_work;
+#ifdef CONFIG_MACH_FIH
+	struct delayed_work	charge_full_jeita_work;
+#endif
 
 	/* cached status */
 	int			voltage_min_uv;
@@ -360,6 +387,19 @@ struct smb_charger {
 	/* extcon for VBUS / ID notification to USB for uUSB */
 	struct extcon_dev	*extcon;
 
+#ifdef CONFIG_MACH_FIH
+	int			fih_update_fun;
+	int			fih_pre_cap;
+	int			fih_pre_temp;
+	bool			fih_check_chg_st;
+	int			fih_pre_fv;
+	int			sys_pre_temp;
+	int			sys_ignore_temp_sts;
+	int			fih_dcp_2a_enable;
+
+	int			fih_hvdcp_current_ua;
+#endif
+
 	/* battery profile */
 	int			batt_profile_fcc_ua;
 	int			batt_profile_fv_uv;
@@ -367,6 +407,25 @@ struct smb_charger {
 	/* qnovo */
 	int			usb_icl_delta_ua;
 	int			pulse_cnt;
+
+#ifdef CONFIG_MACH_FIH
+	/* wipower */
+	bool			disable_wipower;
+	int 			fih_jeita_full_capacity_enable;
+	int 			fih_jeita_full_capacity_warm_temp;
+	int 			fih_jeita_full_capacity_cool_temp;
+	int 			fih_force_change_icl;
+
+	struct notifier_block 	fb_notif;
+	bool 			fih_lcm_on_off_cur_control;
+	struct delayed_work	lcm_cur_ctrl_work;
+	bool 			is_lcm_on;
+	bool			is_ambient_display;
+	int 			check_cnt;
+	int 			fih_qc_control_disable_mode;
+	struct wake_lock  	lcm_control_wake_lock;
+	bool 			fih_remove_health_over_voltage;
+#endif
 };
 
 int smblib_read(struct smb_charger *chg, u16 addr, u8 *val);
@@ -451,7 +510,10 @@ int smblib_get_prop_dc_current_max(struct smb_charger *chg,
 				union power_supply_propval *val);
 int smblib_set_prop_dc_current_max(struct smb_charger *chg,
 				const union power_supply_propval *val);
-
+#ifdef CONFIG_MACH_FIH
+int smblib_get_prop_wipwr_range_status(struct smb_charger *chg,
+                                    union power_supply_propval *val);
+#endif
 int smblib_get_prop_usb_present(struct smb_charger *chg,
 				union power_supply_propval *val);
 int smblib_get_prop_usb_online(struct smb_charger *chg,
@@ -516,6 +578,14 @@ int smblib_icl_override(struct smb_charger *chg, bool override);
 int smblib_dp_dm(struct smb_charger *chg, int val);
 int smblib_disable_hw_jeita(struct smb_charger *chg, bool disable);
 int smblib_rerun_aicl(struct smb_charger *chg);
+#ifdef CONFIG_MACH_FIH
+int smblib_set_prop_safety_timer_enable(struct smb_charger *chg,
+				const union power_supply_propval *val);
+int smblib_get_prop_safety_timer_enable(struct smb_charger *chg,
+				union power_supply_propval *val);
+int smblib_set_icl_current_override(struct smb_charger *chg, int icl_ua);
+int smblib_get_icl_current_override(struct smb_charger *chg, int *icl_ua);
+#endif
 int smblib_set_icl_current(struct smb_charger *chg, int icl_ua);
 int smblib_get_icl_current(struct smb_charger *chg, int *icl_ua);
 int smblib_get_charge_current(struct smb_charger *chg, int *total_current_ua);
@@ -527,7 +597,14 @@ int smblib_get_prop_from_bms(struct smb_charger *chg,
 int smblib_set_prop_pr_swap_in_progress(struct smb_charger *chg,
 				const union power_supply_propval *val);
 void smblib_usb_typec_change(struct smb_charger *chg);
-
+#ifdef CONFIG_MACH_LONGCHEER
+int smblib_get_prop_battery_full_design(struct smb_charger *chg,
+				     union power_supply_propval *val);
+#endif
 int smblib_init(struct smb_charger *chg);
 int smblib_deinit(struct smb_charger *chg);
+#ifdef CONFIG_MACH_FIH
+int smblib_post_init(struct smb_charger *chg);
+int smblib_fih_recover_from_soft_jeita(struct smb_charger *chg);
+#endif
 #endif /* __SMB2_CHARGER_H */
