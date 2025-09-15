@@ -597,6 +597,12 @@ config INPUT_AH1902
         help
           Say Y to enable support for the Diodes AH1902 Hall sensor driver.
 
+config SERIAL_NUM
+        bool "JTag Fuse driver"
+        default n
+        help
+          Say Y to enable support for the JTag Fuse driver.
+
 source "drivers/misc/c2port/Kconfig"
 source "drivers/misc/eeprom/Kconfig"
 source "drivers/misc/cb710/Kconfig"

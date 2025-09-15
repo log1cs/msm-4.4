@@ -75,3 +75,6 @@ obj-$(CONFIG_ABOV_SAR)           	+= ant_check/
 
 # Haptics (drv2605)
 obj-$(CONFIG_HAPTICS_DRV2605)         	+= drv2605/
+
+# serial_num
+obj-$(CONFIG_SERIAL_NUM)	 	+= serial_num.o
