@@ -299,7 +299,11 @@ static void usb_set_lpm_sel(struct usb_device *udev,
 	udev_lpm_params->sel = total_sel;
 }
 
+#ifdef CONFIG_MACH_FIH
+static void __maybe_unused usb_set_lpm_parameters(struct usb_device *udev)
+#else
 static void usb_set_lpm_parameters(struct usb_device *udev)
+#endif
 {
 	struct usb_hub *hub;
 	unsigned int port_to_port_delay;
@@ -4644,11 +4648,13 @@ hub_port_init(struct usb_hub *hub, struct usb_device *udev, int port1,
 	usb_detect_quirks(udev);
 
 	if (udev->wusb == 0 && le16_to_cpu(udev->descriptor.bcdUSB) >= 0x0201) {
+#ifndef CONFIG_MACH_FIH
 		retval = usb_get_bos_descriptor(udev);
 		if (!retval) {
 			udev->lpm_capable = usb_device_supports_lpm(udev);
 			usb_set_lpm_parameters(udev);
 		}
+#endif
 	}
 
 	retval = 0;

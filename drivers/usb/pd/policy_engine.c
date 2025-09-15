@@ -563,6 +563,14 @@ static int pd_send_msg(struct usbpd *pd, u8 msg_type, const u32 *data,
 	if (pd->hard_reset_recvd)
 		return -EBUSY;
 
+#ifdef CONFIG_MACH_FIH
+	/* if it's under hard reset, ignore any message deliver */
+	if (pd->hard_reset_recvd) {
+		usbpd_dbg(&pd->dev, "msg(%u) in hard reset\n", msg_type);
+		return 0;
+	}
+#endif
+
 	hdr = PD_MSG_HDR(msg_type, pd->current_dr, pd->current_pr,
 			pd->tx_msgid, num_data, pd->spec_rev);
 
@@ -1027,6 +1035,11 @@ static void usbpd_set_state(struct usbpd *pd, enum usbpd_state next_state)
 	switch (next_state) {
 	case PE_ERROR_RECOVERY: /* perform hard disconnect/reconnect */
 		pd->in_pr_swap = false;
+#ifdef CONFIG_MACH_FIH
+		val.intval = 0;
+		power_supply_set_property(pd->usb_psy,
+				POWER_SUPPLY_PROP_PR_SWAP, &val);
+#endif
 		pd->current_pr = PR_NONE;
 		set_power_role(pd, PR_NONE);
 		pd->typec_mode = POWER_SUPPLY_TYPEC_NONE;
@@ -1226,7 +1239,11 @@ static void usbpd_set_state(struct usbpd *pd, enum usbpd_state next_state)
 			break;
 		}
 
+#ifdef CONFIG_MACH_FIH
+		if (!val.intval || disable_usb_pd || pd->typec_mode == POWER_SUPPLY_TYPEC_SINK_DEBUG_ACCESSORY)
+#else
 		if (!val.intval || disable_usb_pd)
+#endif
 			break;
 
 		/*
@@ -1920,6 +1937,11 @@ static void usbpd_sm(struct work_struct *w)
 		rx_msg_cleanup(pd);
 
 		power_supply_set_property(pd->usb_psy,
+#ifdef CONFIG_MACH_FIH
+				POWER_SUPPLY_PROP_PR_SWAP, &val);
+
+		power_supply_set_property(pd->usb_psy,
+#endif
 				POWER_SUPPLY_PROP_PD_IN_HARD_RESET, &val);
 
 		power_supply_set_property(pd->usb_psy,
@@ -2959,6 +2981,13 @@ static int psy_changed(struct notifier_block *nb, unsigned long evt, void *ptr)
 
 	case POWER_SUPPLY_TYPEC_SINK_DEBUG_ACCESSORY:
 		usbpd_info(&pd->dev, "Type-C Debug Accessory connected\n");
+#ifdef CONFIG_MACH_FIH
+		if (pd->current_pr != PR_SINK) {
+			pd->current_pr = PR_SINK;
+			pd->psy_type = POWER_SUPPLY_TYPE_USB;
+			pd->vbus_present = 1;
+		}
+#endif
 		break;
 	case POWER_SUPPLY_TYPEC_SINK_AUDIO_ADAPTER:
 		usbpd_info(&pd->dev, "Type-C Analog Audio Adapter connected\n");
