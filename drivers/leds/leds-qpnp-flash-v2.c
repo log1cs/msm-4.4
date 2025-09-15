@@ -1003,7 +1003,11 @@ static void qpnp_flash_led_node_set(struct flash_node_data *fnode, int value)
 {
 	int i = 0;
 	int prgm_current_ma = value;
+#ifdef CONFIG_MACH_FIH
+        int min_ma = fnode->ires_ua / 1000 + 1;
+#else
 	int min_ma = fnode->ires_ua / 1000;
+#endif
 	struct qpnp_flash_led *led = dev_get_drvdata(&fnode->pdev->dev);
 
 	if (value <= 0)
