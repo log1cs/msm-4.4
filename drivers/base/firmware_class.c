@@ -308,6 +308,7 @@ static void fw_free_buf(struct firmware_buf *buf)
 static char fw_path_para[256];
 static const char * const fw_path[] = {
 	fw_path_para,
+	"/vendor/firmware",
 	"/lib/firmware/updates/" UTS_RELEASE,
 	"/lib/firmware/updates",
 	"/lib/firmware/" UTS_RELEASE,
@@ -391,6 +392,47 @@ static int fw_get_filesystem_firmware(struct device *device,
 			rc = -ENAMETOOLONG;
 			break;
 		}
+
+#ifdef CONFIG_MACH_FIH
+		/* CONFIG_PXLW_IRIS3 */
+		if (!strcmp(buf->fw_id, "iris3.fw") && i == 1) {
+			snprintf(path, PATH_MAX, "%s/%s", "/persist", buf->fw_id);
+			dev_err(device, "[Iris] Try to load: %s\n", path);
+		}
+		if (!strcmp(buf->fw_id, "iris3.fw") && i == 2) {
+			snprintf(path, PATH_MAX, "%s/%s", "/data/vendor/misc", buf->fw_id);
+			dev_err(device, "[Iris] Try to load: %s\n", path);
+		}
+#else
+		if (!strcmp(buf->fw_id, "iris3.fw") && i == 1) {
+			extern int iris3_CT_value;
+			if(iris3_CT_value != 7800){
+				i = 3;
+				continue;
+			}
+			snprintf(path, PATH_MAX, "%s/%s", "/mnt/pixelworks", buf->fw_id);
+			dev_err(device, "[Iris] Try to load 1: %s\n", path);
+		}
+		if (!strcmp(buf->fw_id, "HLT-iris3.fw") && i == 1) {
+			extern int iris3_CT_value;
+			if(iris3_CT_value != 7800){
+				i = 3;
+				continue;
+			}
+			snprintf(path, PATH_MAX, "%s/%s", "/mnt/pixelworks", "iris3.fw");
+			dev_err(device, "[Iris] Try to load 2: %s\n", path);
+		}
+
+		if (!strcmp(buf->fw_id, "iris3_ct_value")) {
+			if(i <= 2){
+				snprintf(path, PATH_MAX, "%s/%s", "/mnt/pixelworks", buf->fw_id);
+				dev_err(device, "[Iris] Try to load: %s\n", path);
+			}
+			else{
+				i = ARRAY_SIZE(fw_path);
+			}
+		}
+#endif
 
 		file = filp_open(path, O_RDONLY, 0);
 		if (IS_ERR(file))
