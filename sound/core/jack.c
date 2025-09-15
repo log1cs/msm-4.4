@@ -105,7 +105,11 @@ static int snd_jack_dev_register(struct snd_device *device)
 		jack->input_dev->dev.parent = snd_card_get_device_link(card);
 
 	/* Add capabilities for any keys that are enabled */
+#ifdef CONFIG_MACH_LONGCHEER
+	for (i = 0; i < ARRAY_SIZE(jack->key) - 3; i++) {
+#else
 	for (i = 0; i < ARRAY_SIZE(jack->key); i++) {
+#endif
 		int testbit = SND_JACK_BTN_0 >> i;
 
 		if (!(jack->type & testbit))
